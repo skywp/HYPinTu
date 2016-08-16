@@ -12,7 +12,8 @@ import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
 import android.widget.GridLayout;
 import android.widget.ImageView;
-import android.widget.Toast;
+
+import java.security.SecureRandom;
 
 public class MainActivity extends AppCompatActivity {
     private static final int PANEL_ROW = 3;
@@ -20,16 +21,16 @@ public class MainActivity extends AppCompatActivity {
     private static final int DEFAULT_PADDING = 2;
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final long DEFAULT_ANIM_DURATION = 1000;
+    private static final SecureRandom random = new SecureRandom();
 
     private ImageView[][] mGamePics;
 
-    private GridLayout mGridLayout;
     private ImageView mBlankImageView;
 
+    private GestureDetector mDetector;
     private enum DIRECTION {
         LEFT, RIGHT, TOP, BOTTOM
-    };
-    private GestureDetector mDetector;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onClick(View v) {
                         boolean isAvail = isAvailableBlankImageView(imageView);
-                        Toast.makeText(MainActivity.this, "isAvail=" + isAvail, Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "onClick: isAvailable=" + isAvail);
                         if (isAvail) {
                             animTranslation(imageView);
                         }
@@ -79,33 +80,44 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
                 DIRECTION direction = getDirection(e1.getX(), e1.getY(), e2.getX(), e2.getY());
-                swapImgsByDirection(direction);
+                swapImgsByDirection(direction, true);
                 return true;
             }
         });
     }
 
     private void initView() {
-        mGridLayout = (GridLayout) findViewById(R.id.id_gridlayout);
+        GridLayout mGridLayout = (GridLayout) findViewById(R.id.id_gridlayout);
         if (mGridLayout != null) {
-            for (int i = 0; i < mGamePics.length; i++) {
-                for (ImageView iv : mGamePics[i]) {
+            for (ImageView[] mGamePic : mGamePics) {
+                for (ImageView iv : mGamePic) {
                     mGridLayout.addView(iv);
                 }
             }
         }
         setBlankImageView(mGamePics[PANEL_ROW - 1][PANEL_COLUMN - 1]);
+
+        // 随机打乱顺序
+        for (int i = 0; i < 100; i ++) {
+            DIRECTION randomDirection = randowmEnum(DIRECTION.class);
+            swapImgsByDirection(randomDirection, false);
+        }
     }
 
     private void setBlankImageView(ImageView iv) {
+        GameInfo gameInfo = (GameInfo) iv.getTag();
+        gameInfo.setBitmap(null);
         iv.setImageBitmap(null);
+        iv.setTag(gameInfo);
         mBlankImageView = iv;
     }
 
+    /**
+     * 判断指定的图片是否临近空白图片
+     */
     private boolean isAvailableBlankImageView(ImageView iv) {
         GameInfo ivInfo = (GameInfo) iv.getTag();
         GameInfo blankInfo = (GameInfo) mBlankImageView.getTag();
-
         Log.e(TAG, "isAvailableBlankImageView ivInfo: leftX=" + ivInfo.leftX + ", rightX=" + ivInfo.rightX + ", topY=" + ivInfo.topY + ", bottomY=" + ivInfo.bottomY);
         Log.e(TAG, "isAvailableBlankImageView blankInfo: leftX=" + blankInfo.leftX + ", rightX=" + blankInfo.rightX + ", topY=" + blankInfo.topY + ", bottomY=" + blankInfo.bottomY);
 
@@ -126,6 +138,51 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    /**
+     * 根据手势坐标获取手势方向
+     */
+    private DIRECTION getDirection(float x1, float y1, float x2, float y2) {
+        boolean isLeftOrRight = Math.abs(x1 - x2) > Math.abs(y1 - y2);
+        if (isLeftOrRight) {
+            return x1 - x2 > 0 ? DIRECTION.LEFT : DIRECTION.RIGHT;
+        } else {
+            return y1 - y2 > 0 ? DIRECTION.TOP : DIRECTION.BOTTOM;
+        }
+    }
+
+    /**
+     * 通过手势方向来移动图片
+     */
+    private void swapImgsByDirection(DIRECTION direction, boolean useAnim) {
+        GameInfo blankGameInfo = (GameInfo) mBlankImageView.getTag();
+        int locy = blankGameInfo.locRow, locx = blankGameInfo.locCol;
+        switch (direction) {
+            case LEFT:
+                locx = blankGameInfo.locCol + 1;
+                break;
+            case RIGHT:
+                locx = blankGameInfo.locCol - 1;
+                break;
+            case TOP:
+                locy = blankGameInfo.locRow + 1;
+                break;
+            case BOTTOM:
+                locy = blankGameInfo.locRow - 1;
+                break;
+        }
+
+        if (locx >= 0 && locx < PANEL_COLUMN && locy >= 0 && locy < PANEL_ROW) {
+            if (useAnim) {
+                animTranslation(mGamePics[locy][locx]);
+            } else {
+                directTranslation(mGamePics[locy][locx]);
+            }
+        }
+    }
+
+    /**
+     * 带有动画效果的图片移动
+     */
     private void animTranslation(final ImageView iv) {
         final GameInfo ivInfo = (GameInfo) iv.getTag();
         final GameInfo blankInfo = (GameInfo) mBlankImageView.getTag();
@@ -151,9 +208,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onAnimationEnd(Animation animation) {
                 iv.clearAnimation();
-                mBlankImageView.setImageBitmap(ivInfo.getBitmap());
-                blankInfo.setBitmap(ivInfo.getBitmap());
-                setBlankImageView(iv);
+                swapBitmap(ivInfo, blankInfo, iv);
             }
 
             @Override
@@ -162,39 +217,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         iv.startAnimation(anim);
-
     }
 
-    private DIRECTION getDirection(float x1, float y1, float x2, float y2) {
-        boolean isLeftOrRight = Math.abs(x1 - x2) > Math.abs(y1 - y2);
-        if (isLeftOrRight) {
-            return x1 - x2 > 0 ? DIRECTION.LEFT : DIRECTION.RIGHT;
-        } else {
-            return y1 - y2 > 0 ? DIRECTION.TOP : DIRECTION.BOTTOM;
-        }
+    /**
+     * 无动画效果的图片移动
+     */
+    private void directTranslation(ImageView iv) {
+        final GameInfo ivInfo = (GameInfo) iv.getTag();
+        final GameInfo blankInfo = (GameInfo) mBlankImageView.getTag();
+        swapBitmap(ivInfo, blankInfo, iv);
     }
 
-    private void swapImgsByDirection(DIRECTION direction) {
-        GameInfo blankGameInfo = (GameInfo) mBlankImageView.getTag();
-        int locy = blankGameInfo.locRow, locx = blankGameInfo.locCol;
-        switch (direction) {
-            case LEFT:
-                locx = blankGameInfo.locCol + 1;
-                break;
-            case RIGHT:
-                locx = blankGameInfo.locCol - 1;
-                break;
-            case TOP:
-                locy = blankGameInfo.locRow + 1;
-                break;
-            case BOTTOM:
-                locy = blankGameInfo.locRow - 1;
-                break;
-        }
-
-        if (locx >= 0 && locx < PANEL_COLUMN && locy >= 0 && locy < PANEL_ROW) {
-            animTranslation(mGamePics[locy][locx]);
-        }
+    private void swapBitmap(GameInfo ivInfo, GameInfo blankInfo, ImageView iv) {
+        blankInfo.setBitmap(ivInfo.getBitmap());
+        mBlankImageView.setImageBitmap(ivInfo.getBitmap());
+        mBlankImageView.setTag(blankInfo);
+        setBlankImageView(iv);
     }
 
     @Override
@@ -228,5 +266,10 @@ public class MainActivity extends AppCompatActivity {
         public void setBitmap(Bitmap mBitmap) {
             this.mBitmap = mBitmap;
         }
+    }
+
+    public static <T extends Enum<?>> T randowmEnum(Class<T> clazz) {
+        int x = random.nextInt(clazz.getEnumConstants().length);
+        return clazz.getEnumConstants()[x];
     }
 }
