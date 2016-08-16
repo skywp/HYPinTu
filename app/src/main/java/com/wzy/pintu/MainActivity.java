@@ -12,6 +12,7 @@ import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
 import android.widget.GridLayout;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import java.security.SecureRandom;
 
@@ -22,6 +23,9 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final long DEFAULT_ANIM_DURATION = 1000;
     private static final SecureRandom random = new SecureRandom();
+    private static final int DEFAULT_SWAP_NUM = 20;
+
+    private boolean isAnimRunning;
 
     private ImageView[][] mGamePics;
 
@@ -79,8 +83,10 @@ public class MainActivity extends AppCompatActivity {
         mDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                DIRECTION direction = getDirection(e1.getX(), e1.getY(), e2.getX(), e2.getY());
-                swapImgsByDirection(direction, true);
+                if (!isAnimRunning) {
+                    DIRECTION direction = getDirection(e1.getX(), e1.getY(), e2.getX(), e2.getY());
+                    swapImgsByDirection(direction, true);
+                }
                 return true;
             }
         });
@@ -98,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
         setBlankImageView(mGamePics[PANEL_ROW - 1][PANEL_COLUMN - 1]);
 
         // 随机打乱顺序
-        for (int i = 0; i < 100; i ++) {
+        for (int i = 0; i < DEFAULT_SWAP_NUM; i ++) {
             DIRECTION randomDirection = randowmEnum(DIRECTION.class);
             swapImgsByDirection(randomDirection, false);
         }
@@ -202,13 +208,17 @@ public class MainActivity extends AppCompatActivity {
         anim.setAnimationListener(new Animation.AnimationListener() {
             @Override
             public void onAnimationStart(Animation animation) {
-
+                isAnimRunning = true;
             }
 
             @Override
             public void onAnimationEnd(Animation animation) {
                 iv.clearAnimation();
-                swapBitmap(ivInfo, blankInfo, iv);
+                swapImages(ivInfo, blankInfo, iv);
+                isAnimRunning = false;
+                if (isGameOver()) {
+                    Toast.makeText(MainActivity.this, "You Win!!!", Toast.LENGTH_LONG).show();
+                }
             }
 
             @Override
@@ -225,14 +235,36 @@ public class MainActivity extends AppCompatActivity {
     private void directTranslation(ImageView iv) {
         final GameInfo ivInfo = (GameInfo) iv.getTag();
         final GameInfo blankInfo = (GameInfo) mBlankImageView.getTag();
-        swapBitmap(ivInfo, blankInfo, iv);
+        swapImages(ivInfo, blankInfo, iv);
     }
 
-    private void swapBitmap(GameInfo ivInfo, GameInfo blankInfo, ImageView iv) {
+    private void swapImages(GameInfo ivInfo, GameInfo blankInfo, ImageView iv) {
+        int blankLocCol = blankInfo.locCol;
+        int blankLocRow = blankInfo.locRow;
+
         blankInfo.setBitmap(ivInfo.getBitmap());
+        blankInfo.setNewLoc(ivInfo.locRow, ivInfo.locCol);
         mBlankImageView.setImageBitmap(ivInfo.getBitmap());
         mBlankImageView.setTag(blankInfo);
+
+        ivInfo.setNewLoc(blankLocRow, blankLocCol);
         setBlankImageView(iv);
+    }
+
+    /**
+     * 判断游戏是否结束
+     */
+    private boolean isGameOver() {
+        for (ImageView[] mGamePic : mGamePics) {
+            for (ImageView aMGamePic : mGamePic) {
+                GameInfo gameInfo = (GameInfo) aMGamePic.getTag();
+                if (!gameInfo.isCorrectPic()) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     @Override
@@ -248,15 +280,19 @@ public class MainActivity extends AppCompatActivity {
         private Bitmap mBitmap;
         private int locRow;
         private int locCol;
+        private int initRow;
+        private int initCol;
 
-        public GameInfo(int leftX, int rightX, int topY, int bottomY, Bitmap bitmap, int locRow, int locCol) {
+        public GameInfo(int leftX, int rightX, int topY, int bottomY, Bitmap bitmap, int row, int col) {
             this.leftX = leftX;
             this.rightX = rightX;
             this.topY = topY;
             this.bottomY = bottomY;
             this.mBitmap = bitmap;
-            this.locRow = locRow;
-            this.locCol = locCol;
+            this.locRow = row;
+            this.locCol = col;
+            this.initRow = row;
+            this.initCol = col;
         }
 
         public Bitmap getBitmap() {
@@ -265,6 +301,15 @@ public class MainActivity extends AppCompatActivity {
 
         public void setBitmap(Bitmap mBitmap) {
             this.mBitmap = mBitmap;
+        }
+
+        public boolean isCorrectPic() {
+            return locRow == initRow && locCol == initCol;
+        }
+
+        public void setNewLoc(int row, int col) {
+            locRow = row;
+            locCol = col;
         }
     }
 
