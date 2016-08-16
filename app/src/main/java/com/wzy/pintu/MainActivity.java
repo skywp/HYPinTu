@@ -23,7 +23,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final long DEFAULT_ANIM_DURATION = 1000;
     private static final SecureRandom random = new SecureRandom();
-    private static final int DEFAULT_SWAP_NUM = 20;
+    private static final int DEFAULT_SWAP_NUM = 15;
 
     private boolean isAnimRunning;
 
@@ -194,6 +194,9 @@ public class MainActivity extends AppCompatActivity {
         final GameInfo blankInfo = (GameInfo) mBlankImageView.getTag();
         TranslateAnimation anim = null;
 
+        Log.e(TAG, "animTranslation: ivInfo " + "bottomY=" + ivInfo.bottomY + ", leftX=" + ivInfo.leftX);
+        Log.e(TAG, "animTranslation: blankInfo " + "bottomY=" + blankInfo.bottomY + ", leftX=" + blankInfo.leftX);
+
         if (ivInfo.bottomY == blankInfo.bottomY) {
             // 左边or右边
             anim = new TranslateAnimation(0, blankInfo.leftX - ivInfo.leftX, 0, 0);
@@ -239,16 +242,37 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void swapImages(GameInfo ivInfo, GameInfo blankInfo, ImageView iv) {
+        swapCoordinateInfo(ivInfo, blankInfo);
+        swapLocationInfo(ivInfo, blankInfo);
+
+        iv.setTag(blankInfo);
+        mBlankImageView.setTag(ivInfo);
+
+        mBlankImageView.setImageBitmap(ivInfo.getBitmap());
+        iv.setImageBitmap(blankInfo.getBitmap());
+
+        mBlankImageView = iv;
+    }
+
+    /**
+     * 交换数组下标信息
+     */
+    private void swapLocationInfo(GameInfo ivInfo, GameInfo blankInfo) {
         int blankLocCol = blankInfo.locCol;
         int blankLocRow = blankInfo.locRow;
-
-        blankInfo.setBitmap(ivInfo.getBitmap());
         blankInfo.setNewLoc(ivInfo.locRow, ivInfo.locCol);
-        mBlankImageView.setImageBitmap(ivInfo.getBitmap());
-        mBlankImageView.setTag(blankInfo);
-
         ivInfo.setNewLoc(blankLocRow, blankLocCol);
-        setBlankImageView(iv);
+    }
+
+    /**
+     * 交换x轴和y轴坐标信息.
+     */
+    private void swapCoordinateInfo(GameInfo ivInfo, GameInfo blankInfo) {
+        int ivLeftX = ivInfo.leftX, ivRightX = ivInfo.rightX,
+                ivTopY = ivInfo.topY, ivBottomY = ivInfo.bottomY;
+
+        ivInfo.setCoordinate(blankInfo.leftX, blankInfo.topY, blankInfo.rightX, blankInfo.bottomY);
+        blankInfo.setCoordinate(ivLeftX, ivTopY, ivRightX, ivBottomY);
     }
 
     /**
@@ -277,7 +301,7 @@ public class MainActivity extends AppCompatActivity {
         private int topY;
         private int rightX;
         private int bottomY;
-        private Bitmap mBitmap;
+        private Bitmap bitmap;
         private int locRow;
         private int locCol;
         private int initRow;
@@ -288,7 +312,7 @@ public class MainActivity extends AppCompatActivity {
             this.rightX = rightX;
             this.topY = topY;
             this.bottomY = bottomY;
-            this.mBitmap = bitmap;
+            this.bitmap = bitmap;
             this.locRow = row;
             this.locCol = col;
             this.initRow = row;
@@ -296,11 +320,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         public Bitmap getBitmap() {
-            return mBitmap;
+            return bitmap;
         }
 
         public void setBitmap(Bitmap mBitmap) {
-            this.mBitmap = mBitmap;
+            this.bitmap = mBitmap;
         }
 
         public boolean isCorrectPic() {
@@ -310,6 +334,13 @@ public class MainActivity extends AppCompatActivity {
         public void setNewLoc(int row, int col) {
             locRow = row;
             locCol = col;
+        }
+
+        public void setCoordinate(int leftX, int topY, int rightX, int bottomY) {
+            this.leftX = leftX;
+            this.topY = topY;
+            this.rightX = rightX;
+            this.bottomY = bottomY;
         }
     }
 
