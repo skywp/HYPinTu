@@ -5,6 +5,8 @@ import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
@@ -24,6 +26,10 @@ public class MainActivity extends AppCompatActivity {
     private GridLayout mGridLayout;
     private ImageView mBlankImageView;
 
+    private enum DIRECTION {
+        LEFT, RIGHT, TOP, BOTTOM
+    };
+    private GestureDetector mDetector;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +58,7 @@ public class MainActivity extends AppCompatActivity {
                 imageView.setImageBitmap(square);
                 imageView.setPadding(DEFAULT_PADDING, DEFAULT_PADDING, DEFAULT_PADDING,
                         DEFAULT_PADDING);
-                GameInfo gameInfo = new GameInfo(x, x + squareWidth, y, y + squareHeight, square);
+                GameInfo gameInfo = new GameInfo(x, x + squareWidth, y, y + squareHeight, square, i, j);
                 imageView.setTag(gameInfo);
                 imageView.setOnClickListener(new View.OnClickListener() {
                     @Override
@@ -68,6 +74,15 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         srcBitmap.recycle();
+
+        mDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                DIRECTION direction = getDirection(e1.getX(), e1.getY(), e2.getX(), e2.getY());
+                swapImgsByDirection(direction);
+                return true;
+            }
+        });
     }
 
     private void initView() {
@@ -150,24 +165,60 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private DIRECTION getDirection(float x1, float y1, float x2, float y2) {
+        boolean isLeftOrRight = Math.abs(x1 - x2) > Math.abs(y1 - y2);
+        if (isLeftOrRight) {
+            return x1 - x2 > 0 ? DIRECTION.LEFT : DIRECTION.RIGHT;
+        } else {
+            return y1 - y2 > 0 ? DIRECTION.TOP : DIRECTION.BOTTOM;
+        }
+    }
+
+    private void swapImgsByDirection(DIRECTION direction) {
+        GameInfo blankGameInfo = (GameInfo) mBlankImageView.getTag();
+        int locy = blankGameInfo.locRow, locx = blankGameInfo.locCol;
+        switch (direction) {
+            case LEFT:
+                locx = blankGameInfo.locCol + 1;
+                break;
+            case RIGHT:
+                locx = blankGameInfo.locCol - 1;
+                break;
+            case TOP:
+                locy = blankGameInfo.locRow + 1;
+                break;
+            case BOTTOM:
+                locy = blankGameInfo.locRow - 1;
+                break;
+        }
+
+        if (locx >= 0 && locx < PANEL_COLUMN && locy >= 0 && locy < PANEL_ROW) {
+            animTranslation(mGamePics[locy][locx]);
+        }
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        return mDetector.onTouchEvent(event);
+    }
+
     private static class GameInfo {
         private int leftX;
         private int topY;
         private int rightX;
         private int bottomY;
         private Bitmap mBitmap;
+        private int locRow;
+        private int locCol;
 
-        public GameInfo(int leftX, int rightX, int topY, int bottomY) {
+        public GameInfo(int leftX, int rightX, int topY, int bottomY, Bitmap bitmap, int locRow, int locCol) {
             this.leftX = leftX;
             this.rightX = rightX;
             this.topY = topY;
             this.bottomY = bottomY;
-            this.mBitmap = null;
-        }
-
-        public GameInfo(int leftX, int rightX, int topY, int bottomY, Bitmap bitmap) {
-            this(leftX, rightX, topY, bottomY);
             this.mBitmap = bitmap;
+            this.locRow = locRow;
+            this.locCol = locCol;
         }
 
         public Bitmap getBitmap() {
