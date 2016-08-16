@@ -4,4 +4,4 @@
 
 游戏截图如下：
 
-![game_pic](http://github.com/wangzhengyi/HYPinTu/raw/master/screenshots/device-2016-08-16-163508.png)
+![game_pic](https://github.com/wangzhengyi/HYPinTu/raw/master/screenshots/device-2016-08-16-163508.png)
